@@ -16,7 +16,23 @@ async function getBooking(userId: number) {
 }
 
 async function insertBooking(userId: number, roomId: number) {
-    const booking = await bookingRepository.findByUserId(userId);
+    try {
+        await verifyTicket(userId);
+        await verifyRoom(roomId);
+
+        let insert = await bookingRepository.insertBooking(userId,roomId);
+
+        return {
+            bookingId: insert.id
+        }
+    }catch(error){
+        throw error
+    }
+
+}
+
+async function changeBooking(userId: number, roomId:number ,bookingId: number) {
+    const booking = await bookingRepository.findById(bookingId);
   
     if (!booking) throw notFoundError();
   
@@ -24,7 +40,12 @@ async function insertBooking(userId: number, roomId: number) {
         await verifyTicket(userId);
         await verifyRoom(roomId);
 
-        //let insert = await bookingRepository.insertBooking(userId,roomId);
+        await bookingRepository.deleteBooking(bookingId);
+        let insert = await bookingRepository.insertBooking(userId,roomId);
+
+        return {
+            bookingId: insert.id
+        }
     }catch(error){
         throw error
     }
@@ -54,7 +75,7 @@ async function verifyRoom(roomId: number) {
 
 async function verifyTicket(userId: number) {
     let user = await userRepository.findUserTicketAndPayment(userId);
-    if(!user || !user.Enrollment[0].id || !user.Enrollment[0].Ticket[0] || !user.Enrollment[0].Ticket[0]){
+    if(!user || !user.Enrollment[0].id || !user.Enrollment[0].Ticket[0]){
         throw {
             http: httpStatus.FORBIDDEN,
             err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")
@@ -72,7 +93,8 @@ async function verifyTicket(userId: number) {
 
 const bookingService = {
     getBooking,
-    insertBooking
+    insertBooking,
+    changeBooking
 };
 
 export default bookingService;

@@ -32,3 +32,26 @@ export async function insertBooking(req: AuthenticatedRequest, res: Response) {
         return res.status(error.http).send(error.err);
     }
 }
+
+export async function changeBooking(req: AuthenticatedRequest, res: Response) {
+    const { userId } = req;
+    const { bookingId } = req.params;
+    const { roomId } = req.body;
+
+    try {
+        if(bookingId === undefined || isNaN(Number(bookingId))) throw {
+            http: httpStatus.BAD_REQUEST,
+            err:invalidDataError(["bookingId must be a number"])
+        };
+        else if(roomId === undefined || isNaN(roomId)) throw {
+            http: httpStatus.BAD_REQUEST,
+            err:invalidDataError(["RoomId must be a number"])
+        };
+
+        const booking = await bookingService.changeBooking(userId,roomId,Number(bookingId));
+
+        return res.status(httpStatus.OK).send(booking);
+    } catch (error) {
+        return res.status(error.http).send(error.err);
+    }
+}
