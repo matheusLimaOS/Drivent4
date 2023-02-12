@@ -6,13 +6,20 @@ import { verify } from "crypto";
 import httpStatus from "http-status";
 
 async function getBooking(userId: number) {
-  const booking = await bookingRepository.findByUserId(userId);
+    const booking = await bookingRepository.findByUserId(userId);
 
-  if (!booking) throw notFoundError();
+    if (!booking) throw {
+        http: httpStatus.NOT_FOUND,
+        err: notFoundError()
+    }
+    
+    delete booking.Room.createdAt;
+    delete booking.Room.updatedAt;
 
-  return {
-    booking
-  };
+    return {
+        id: booking.id,
+        Room: booking.Room
+    };
 }
 
 async function insertBooking(userId: number, roomId: number) {
@@ -20,34 +27,58 @@ async function insertBooking(userId: number, roomId: number) {
         await verifyTicket(userId);
         await verifyRoom(roomId);
 
-        let insert = await bookingRepository.insertBooking(userId,roomId);
+        let insert = await bookingRepository.insertBooking(userId, roomId);
 
         return {
             bookingId: insert.id
         }
-    }catch(error){
-        throw error
+    } catch (error) {
+        if(!error.http){
+            throw {
+                http: httpStatus.BAD_REQUEST,
+                err: error
+            }
+        }
+        else{
+            throw error
+        }
     }
 
 }
 
-async function changeBooking(userId: number, roomId:number ,bookingId: number) {
+async function changeBooking(userId: number, roomId: number, bookingId: number) {
     const booking = await bookingRepository.findById(bookingId);
-  
-    if (!booking) throw notFoundError();
-  
-    try {
-        await verifyTicket(userId);
-        await verifyRoom(roomId);
 
-        await bookingRepository.deleteBooking(bookingId);
-        let insert = await bookingRepository.insertBooking(userId,roomId);
+    if (!booking) throw {
+        http: httpStatus.NOT_FOUND,
+        err: notFoundError()
+    }
+
+    if(booking.userId !== userId){
+        throw {
+            http: httpStatus.FORBIDDEN,
+            err: ForbiddenError("User does not have a booking")
+        }
+    }
+
+    try {
+        await verifyRoom(roomId);
+        
+        let changed = await bookingRepository.updateBooking(bookingId,roomId);
 
         return {
-            bookingId: insert.id
+            bookingId: changed.id
         }
-    }catch(error){
-        throw error
+    } catch (error) {
+        if(!error.http){
+            throw {
+                http: httpStatus.BAD_REQUEST,
+                err: error
+            }
+        }
+        else{
+            throw error
+        }
     }
 
 }
@@ -56,16 +87,14 @@ async function verifyRoom(roomId: number) {
     let room = await hotelRepository.findRoomById(roomId);
     let count = await bookingRepository.countBookingForRoom(roomId);
 
-    console.log(count);
-
-    if(!room){
-        throw{
+    if (!room) {
+        throw {
             http: httpStatus.NOT_FOUND,
             err: notFoundError()
         }
     }
 
-    else if(count === room.capacity){
+    else if (count === room.capacity) {
         throw {
             http: httpStatus.FORBIDDEN,
             err: ForbiddenError("Room have reached his full capacity")
@@ -75,14 +104,34 @@ async function verifyRoom(roomId: number) {
 
 async function verifyTicket(userId: number) {
     let user = await userRepository.findUserTicketAndPayment(userId);
-    if(!user || !user.Enrollment[0].id || !user.Enrollment[0].Ticket[0]){
+    if(user.Enrollment.length===0){
+        throw {
+            http: httpStatus.FORBIDDEN,
+            err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")
+        }
+    }
+    else if(user.Enrollment[0].Ticket.length===0){
         throw {
             http: httpStatus.FORBIDDEN,
             err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")
         }
     }
 
-    if(user.Enrollment[0].Ticket[0].status !== "PAID" || user.Enrollment[0].Ticket[0].TicketType.isRemote === true || user.Enrollment[0].Ticket[0].TicketType.includesHotel === false){
+    else if(user.Enrollment[0].Ticket[0].status !== "PAID"){
+        throw {
+            http: httpStatus.FORBIDDEN,
+            err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")
+        }
+    }
+
+    else if(user.Enrollment[0].Ticket[0].TicketType.includesHotel === false){
+        throw {
+            http: httpStatus.FORBIDDEN,
+            err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")
+        }
+    }
+    
+    else if ( user.Enrollment[0].Ticket[0].TicketType.isRemote === true ) {
         throw {
             http: httpStatus.FORBIDDEN,
             err: ForbiddenError("User does not have ticket, face-to-face ticket, with accommodation and paid")

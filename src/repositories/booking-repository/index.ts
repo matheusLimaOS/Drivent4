@@ -2,7 +2,10 @@ import { prisma } from "@/config";
 
 async function findByUserId(userId: number) {
   return prisma.booking.findFirst({
-    where: { userId }
+    where: { userId },
+    include: {
+      Room: true
+    }
   });
 }
 
@@ -29,10 +32,13 @@ async function countBookingForRoom(roomId:number) {
   });
 }
 
-async function deleteBooking(bookingId:number) {
-  return prisma.booking.delete({
+async function updateBooking(bookingId:number, roomId: number) {
+  return prisma.booking.update({
     where: {
       id:bookingId
+    },
+    data:{
+      roomId
     }
   });
 }
@@ -42,7 +48,7 @@ const bookingRepository = {
     insertBooking,
     findById,
     countBookingForRoom,
-    deleteBooking
+    updateBooking
 };
 
 export default bookingRepository;
