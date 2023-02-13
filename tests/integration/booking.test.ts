@@ -220,6 +220,22 @@ describe("POST /booking", () => {
                 expect(response.status).toBe(httpStatus.FORBIDDEN);
             });
 
+            it("should respond with status 403 when user already has a booking", async () => {
+                const user = await createUser();
+                const token = await generateValidToken(user);
+                const enrollment = await createEnrollmentWithAddress(user);
+                const ticketType = await createTicketTypeWithHotel();
+                const ticket = await createTicket(enrollment.id, ticketType.id, TicketStatus.PAID);
+                await createPayment(ticket.id, ticketType.price);
+                const createdHotel = await createHotel();
+                const createdRoom = await createRoomWithHotelId(createdHotel.id);
+                await createBooking(user.id,createdRoom.id)
+
+                const response = await server.post("/booking").set("Authorization", `Bearer ${token}`).send({"roomId": createdRoom.id});
+
+                expect(response.status).toBe(httpStatus.FORBIDDEN);
+            });
+
             it("should respond with status 404 when room does not exist", async () => {
                 const user = await createUser();
                 const token = await generateValidToken(user);

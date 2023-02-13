@@ -2,7 +2,6 @@ import { ForbiddenError, notFoundError } from "@/errors";
 import bookingRepository from "@/repositories/booking-repository";
 import hotelRepository from "@/repositories/hotel-repository";
 import userRepository from "@/repositories/user-repository";
-import { verify } from "crypto";
 import httpStatus from "http-status";
 
 async function getBooking(userId: number) {
@@ -23,6 +22,13 @@ async function getBooking(userId: number) {
 }
 
 async function insertBooking(userId: number, roomId: number) {
+    const booking = await bookingRepository.findByUserId(userId);
+
+    if (booking) throw {
+        http: httpStatus.FORBIDDEN,
+        err: ForbiddenError("User already have a booking")
+    }
+
     try {
         await verifyTicket(userId);
         await verifyRoom(roomId);
